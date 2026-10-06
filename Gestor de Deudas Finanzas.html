@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestor Financiero Móvil</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            dark: '#0f172a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 5rem);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between select-none">
+
+    <header class="sticky top-0 z-30 bg-slate-800/95 backdrop-blur border-b border-slate-700/80 px-4 py-3 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-900 font-extrabold text-lg shadow-md shadow-emerald-500/20">
+                €
+            </div>
+            <div>
+                <h1 class="font-bold text-base leading-tight text-white">Mi Control Financiero</h1>
+                <p class="text-xs text-slate-400">Gestión de Deudas e Ingresos</p>
+            </div>
+        </div>
+        <button onclick="exportData()" class="p-2 rounded-xl bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white transition active:scale-95" title="Exportar Copia de Seguridad">
+            <i class="fa-solid fa-download text-sm"></i>
+        </button>
+    </header>
+
+    <main class="flex-1 max-w-md w-full mx-auto p-4 pb-24 overflow-y-auto hide-scrollbar">
+        
+        <!-- VISTA 1: DASHBOARD / RESUMEN -->
+        <section id="view-dashboard" class="space-y-5">
+            <!-- Tarjetas Resumen -->
+            <div class="grid grid-cols-1 gap-3">
+                <!-- Dinero Disponible Mensual -->
+                <div class="bg-gradient-to-br from-emerald-900/40 to-slate-800 border border-emerald-500/30 rounded-2xl p-4 relative overflow-hidden shadow-lg">
+                    <div class="absolute -right-4 -bottom-4 opacity-10 text-emerald-400">
+                        <i class="fa-solid fa-wallet text-8xl"></i>
+                    </div>
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Dinero Disponible Mensual
+                        </span>
+                        <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+                    </div>
+                    <div class="text-3xl font-extrabold text-white mb-1" id="dash-disponible">0,00 €</div>
+                    <p class="text-xs text-slate-400" id="dash-disponible-sub">Ingresos - Cuotas - Gastos Fijos</p>
+                </div>
+
+                <!-- Grid de Deuda Total y Cuotas -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3.5 shadow-md">
+                        <div class="text-xs text-rose-400 font-medium mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-chart-pie"></i> Deuda Total
+                        </div>
+                        <div class="text-xl font-bold text-white" id="dash-deuda-total">0,00 €</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Suma acumulada</div>
+                    </div>
+
+                    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3.5 shadow-md">
+                        <div class="text-xs text-amber-400 font-medium mb-1 flex items-center gap-1">
+                            <i class="fa-solid fa-calendar-check"></i> Cuotas/Mes
+                        </div>
+                        <div class="text-xl font-bold text-white" id="dash-cuota-total">0,00 €</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Pago mensual deudas</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Desglose Rápido por Tipo de Deuda -->
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4">
+                <h3 class="text-sm font-semibold text-slate-200 mb-3 flex items-center justify-between">
+                    <span>Resumen de Deudas</span>
+                    <button onclick="switchTab('deudas')" class="text-xs text-emerald-400 hover:underline">Ver todas</button>
+                </h3>
+                <div class="space-y-3">
+                    <!-- Hipotecas -->
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                                <i class="fa-solid fa-house text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-medium text-slate-200">Hipotecas</div>
+                                <div class="text-[10px] text-slate-400" id="dash-hipotecas-cuotas">Cuota: 0,00 €</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-bold text-slate-100" id="dash-hipotecas-saldo">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjetas -->
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                                <i class="fa-solid fa-credit-card text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-medium text-slate-200">Tarjetas de Crédito</div>
+                                <div class="text-[10px] text-slate-400" id="dash-tarjetas-cuotas">Cuota: 0,00 €</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-bold text-slate-100" id="dash-tarjetas-saldo">0,00 €</div>
+                        </div>
+                    </div>
+
+                    <!-- Préstamos -->
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center">
+                                <i class="fa-solid fa-hand-holding-dollar text-sm"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-medium text-slate-200">Préstamos Personalizados</div>
+                                <div class="text-[10px] text-slate-400" id="dash-prestamos-cuotas">Cuota: 0,00 €</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-bold text-slate-100" id="dash-prestamos-saldo">0,00 €</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botón para Registrar Cierre de Mes -->
+            <div class="pt-2">
+                <button onclick="registerMonthlySnapshot()" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-2xl shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 active:scale-[0.98] transition">
+                    <i class="fa-solid fa-calendar-plus"></i> Registrar / Cerrar Estado del Mes
+                </button>
+            </div>
+        </section>
+
+        <!-- VISTA 2: DEUDAS (HIPOTECAS, TARJETAS, PRÉSTAMOS) -->
+        <section id="view-deudas" class="space-y-4 hidden">
+            <!-- Selector de Categoría / Botón Añadir -->
+            <div class="flex justify-between items-center">
+                <h2 class="text-base font-bold text-slate-100">Gestión de Deudas</h2>
+                <button onclick="openDebtModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-medium flex items-center gap-1 shadow-md">
+                    <i class="fa-solid fa-plus"></i> Añadir Deuda
+                </button>
+            </div>
+
+            <!-- Lista de Deudas -->
+            <div id="debt-list" class="space-y-3">
+                <!-- Se rellena dinámicamente -->
+            </div>
+        </section>
+
+        <!-- VISTA 3: INGRESOS Y GASTOS FIJOS -->
+        <section id="view-finanzas" class="space-y-4 hidden">
+            <h2 class="text-base font-bold text-slate-100">Ingresos y Gastos Fijos</h2>
+            
+            <!-- Ingresos Mensuales -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 space-y-3 shadow-md">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center"></i> Ingresos Mensuales
+                    </h3>
+                    <button onclick="openIncomeModal()" class="text-xs text-emerald-400 hover:underline"><i class="fa-solid fa-plus"></i> Añadir</button>
+                </div>
+                <div id="income-list" class="space-y-2">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+
+            <!-- Gastos Fijos -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 space-y-3 shadow-md">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-receipt"></i> Gastos Fijos (Luz, Agua, Alquiler...)
+                    </h3>
+                    <button onclick="openExpenseModal()" class="text-xs text-amber-400 hover:underline"><i class="fa-solid fa-plus"></i> Añadir</button>
+                </div>
+                <div id="expense-list" class="space-y-2">
+                    <!-- Dinámico -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA 4: EVOLUCIÓN Y GRÁFICOS -->
+        <section id="view-graficos" class="space-y-4 hidden">
+            <h2 class="text-base font-bold text-slate-100">Evolución e Histórico</h2>
+
+            <!-- Gráfico principal -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 shadow-md">
+                <h3 class="text-xs font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-emerald-400"></i> Evolución de Deuda Total
+                </h3>
+                <div class="relative w-full h-60">
+                    <canvas id="chartEvolucion"></canvas>
+                </div>
+            </div>
+
+            <!-- Histórico Registro Mes a Mes -->
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 shadow-md">
+                <h3 class="text-xs font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> Registro Histórico
+                </h3>
+                <div id="history-list" class="space-y-2 max-h-60 overflow-y-auto hide-scrollbar">
+                    <!-- Registros dinámicos -->
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA 5: AJUSTES & COPIA DE SEGURIDAD -->
+        <section id="view-ajustes" class="space-y-4 hidden">
+            <h2 class="text-base font-bold text-slate-100">Configuración y Seguridad</h2>
+
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 space-y-4 shadow-md">
+                <h3 class="text-sm font-semibold text-slate-200">Copia de Seguridad</h3>
+                <p class="text-xs text-slate-400">Guarda tus datos localmente o expórtalos en un archivo JSON para restaurarlos cuando quieras.</p>
+                
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <button onclick="exportData()" class="py-2.5 px-3 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-300 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-download"></i> Exportar Backup
+                    </button>
+                    <label class="py-2.5 px-3 bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-medium flex items-center justify-center gap-2 cursor-pointer transition">
+                        <i class="fa-solid fa-upload"></i> Importar JSON
+                        <input type="file" id="import-file" accept=".json" class="hidden" onchange="importData(event)">
+                    </label>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 space-y-3 shadow-md">
+                <h3 class="text-sm font-semibold text-rose-400">Zona de Riesgo</h3>
+                <p class="text-xs text-slate-400">Elimina todos los registros de la aplicación y restablece los valores iniciales.</p>
+                <button onclick="resetData()" class="w-full py-2.5 bg-rose-900/30 hover:bg-rose-900/50 border border-rose-600/40 text-rose-300 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-trash-can"></i> Borrar Todo
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- BARRA NAVEGACIÓN INFERIOR (Estilo App Nativa Móvil) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-slate-800/95 backdrop-blur border-t border-slate-700/80 px-2 py-2">
+        <div class="max-w-md mx-auto flex justify-around items-center text-center">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="flex-1 py-1 text-emerald-400 flex flex-col items-center gap-1 transition">
+                <i class="fa-solid fa-house-chimney text-base"></i>
+                <span class="text-[10px] font-medium">Inicio</span>
+            </button>
+            <button onclick="switchTab('deudas')" id="nav-deudas" class="flex-1 py-1 text-slate-400 flex flex-col items-center gap-1 transition">
+                <i class="fa-solid fa-credit-card text-base"></i>
+                <span class="text-[10px] font-medium">Deudas</span>
+            </button>
+            <button onclick="switchTab('finanzas')" id="nav-finanzas" class="flex-1 py-1 text-slate-400 flex flex-col items-center gap-1 transition">
+                <i class="fa-solid fa-wallet text-base"></i>
+                <span class="text-[10px] font-medium">Ingresos</span>
+            </button>
+            <button onclick="switchTab('graficos')" id="nav-graficos" class="flex-1 py-1 text-slate-400 flex flex-col items-center gap-1 transition">
+                <i class="fa-solid fa-chart-line text-base"></i>
+                <span class="text-[10px] font-medium">Evolución</span>
+            </button>
+            <button onclick="switchTab('ajustes')" id="nav-ajustes" class="flex-1 py-1 text-slate-400 flex flex-col items-center gap-1 transition">
+                <i class="fa-solid fa-gear text-base"></i>
+                <span class="text-[10px] font-medium">Ajustes</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MODAL AÑADIR / EDITAR DEUDA -->
+    <div id="modal-debt" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                <h3 class="font-bold text-sm text-slate-100" id="modal-debt-title">Añadir Deuda</h3>
+                <button onclick="closeModal('modal-debt')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="form-debt" onsubmit="saveDebt(event)" class="space-y-3">
+                <input type="hidden" id="debt-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Tipo de Deuda</label>
+                    <select id="debt-type" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                        <option value="hipoteca">🏠 Hipoteca</option>
+                        <option value="tarjeta">💳 Tarjeta de Crédito</option>
+                        <option value="prestamo">💰 Préstamo Personalizado</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Nombre / Entidad</label>
+                    <input type="text" id="debt-name" required placeholder="Ej. Banco Santander / Tarjeta Visa" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Cuota Mensual (€)</label>
+                        <input type="number" step="0.01" id="debt-cuota" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Saldo Pendiente (€)</label>
+                        <input type="number" step="0.01" id="debt-saldo" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+                <div class="pt-2 flex gap-2">
+                    <button type="button" onclick="closeModal('modal-debt')" class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-semibold text-slate-200">Cancelar</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold text-white">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL INGRESOS / GASTOS -->
+    <div id="modal-finance" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 hidden">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                <h3 class="font-bold text-sm text-slate-100" id="modal-finance-title">Añadir Registro</h3>
+                <button onclick="closeModal('modal-finance')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="form-finance" onsubmit="saveFinance(event)" class="space-y-3">
+                <input type="hidden" id="finance-id">
+                <input type="hidden" id="finance-kind"> <!-- income or expense -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Concepto / Nombre</label>
+                    <input type="text" id="finance-name" required placeholder="Ej. Nómina / Luz / Alquiler" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Monto Mensual (€)</label>
+                    <input type="number" step="0.01" id="finance-amount" required placeholder="0.00" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                </div>
+                <div class="pt-2 flex gap-2">
+                    <button type="button" onclick="closeModal('modal-finance')" class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl text-xs font-semibold text-slate-200">Cancelar</button>
+                    <button type="submit" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-semibold text-white">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL DE LA APLICACIÓN
+        let appData = {
+            debts: [],
+            incomes: [],
+            expenses: [],
+            history: []
+        };
+
+        let chartInstance = null;
+
+        // DATOS INICIALES POR DEFECTO DE MUESTRA
+        const defaultData = {
+            debts: [
+                { id: '1', type: 'hipoteca', name: 'Hipoteca Vivienda Habitual', cuota: 550, saldo: 125000 },
+                { id: '2', type: 'tarjeta', name: 'Tarjeta Crédito Santander', cuota: 120, saldo: 1450 },
+                { id: '3', type: 'prestamo', name: 'Préstamo Coche', cuota: 210, saldo: 6800 }
+            ],
+            incomes: [
+                { id: '1', name: 'Nómina principal', amount: 2300 },
+                { id: '2', name: 'Ingreso Extra Freelance', amount: 300 }
+            ],
+            expenses: [
+                { id: '1', name: 'Alquiler / Comunidad', amount: 150 },
+                { id: '2', name: 'Suministros (Luz, Agua, Gas)', amount: 120 },
+                { id: '3', name: 'Internet y Móvil', amount: 50 }
+            ],
+            history: [
+                { date: '2026-07', totalDebt: 138000, totalPaid: 880 },
+                { date: '2026-08', totalDebt: 135200, totalPaid: 880 },
+                { date: '2026-09', totalDebt: 133250, totalPaid: 880 }
+            ]
+        };
+
+        window.onload = function() {
+            loadLocalData();
+            renderAll();
+            initChart();
+        };
+
+        function loadLocalData() {
+            const saved = localStorage.getItem('finance_app_data');
+            if (saved) {
+                try {
+                    appData = JSON.parse(saved);
+                } catch (e) {
+                    appData = JSON.parse(JSON.stringify(defaultData));
+                }
+            } else {
+                appData = JSON.parse(JSON.stringify(defaultData));
+                saveLocalData();
+            }
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('finance_app_data', JSON.stringify(appData));
+            renderAll();
+            updateChart();
+        }
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(num || 0);
+        }
+
+        // CAMBIO DE VISTAS (PESTAÑAS)
+        function switchTab(tabName) {
+            ['dashboard', 'deudas', 'finanzas', 'graficos', 'ajustes'].forEach(tab => {
+                const view = document.getElementById(`view-${tab}`);
+                const nav = document.getElementById(`nav-${tab}`);
+                if (tab === tabName) {
+                    view.classList.remove('hidden');
+                    nav.classList.add('text-emerald-400');
+                    nav.classList.remove('text-slate-400');
+                } else {
+                    view.classList.add('hidden');
+                    nav.classList.remove('text-emerald-400');
+                    nav.classList.add('text-slate-400');
+                }
+            });
+
+            if (tabName === 'graficos') {
+                setTimeout(() => { updateChart(); }, 100);
+            }
+        }
+
+        function renderAll() {
+            // Totales de deudas
+            let totalDeuda = 0;
+            let totalCuotas = 0;
+
+            let hipotecasCuota = 0, hipotecasSaldo = 0;
+            let tarjetasCuota = 0, tarjetasSaldo = 0;
+            let prestamosCuota = 0, prestamosSaldo = 0;
+
+            appData.debts.forEach(d => {
+                const c = parseFloat(d.cuota) || 0;
+                const s = parseFloat(d.saldo) || 0;
+                totalCuotas += c;
+                totalDeuda += s;
+
+                if (d.type === 'hipoteca') {
+                    hipotecasCuota += c; hipotecasSaldo += s;
+                } else if (d.type === 'tarjeta') {
+                    tarjetasCuota += c; tarjetasSaldo += s;
+                } else {
+                    prestamosCuota += c; prestamosSaldo += s;
+                }
+            });
+
+            // Totales Ingresos y Gastos
+            const totalIngresos = appData.incomes.reduce((acc, i) => acc + (parseFloat(i.amount) || 0), 0);
+            const totalGastosFijos = appData.expenses.reduce((acc, e) => acc + (parseFloat(e.amount) || 0), 0);
+            
+            // Dinero Disponible = Ingresos - Gastos Fijos - Cuotas de Deuda
+            const disponible = totalIngresos - totalGastosFijos - totalCuotas;
+
+            // Actualizar Dashboard
+            document.getElementById('dash-disponible').textContent = formatCurrency(disponible);
+            document.getElementById('dash-deuda-total').textContent = formatCurrency(totalDeuda);
+            document.getElementById('dash-cuota-total').textContent = formatCurrency(totalCuotas);
+
+            document.getElementById('dash-hipotecas-cuotas').textContent = `Cuota: ${formatCurrency(hipotecasCuota)}`;
+            document.getElementById('dash-hipotecas-saldo').textContent = formatCurrency(hipotecasSaldo);
+
+            document.getElementById('dash-tarjetas-cuotas').textContent = `Cuota: ${formatCurrency(tarjetasCuota)}`;
+            document.getElementById('dash-tarjetas-saldo').textContent = formatCurrency(tarjetasSaldo);
+
+            document.getElementById('dash-prestamos-cuotas').textContent = `Cuota: ${formatCurrency(prestamosCuota)}`;
+            document.getElementById('dash-prestamos-saldo').textContent = formatCurrency(prestamosSaldo);
+
+            renderDebtList();
+            renderFinanceList();
+            renderHistoryList();
+        }
+
+        function renderDebtList() {
+            const container = document.getElementById('debt-list');
+            if (appData.debts.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">No hay deudas registradas. ¡Buen trabajo!</div>`;
+                return;
+            }
+
+            const icons = {
+                hipoteca: 'fa-house text-indigo-400',
+                tarjeta: 'fa-credit-card text-amber-400',
+                prestamo: 'fa-hand-holding-dollar text-rose-400'
+            };
+
+            container.innerHTML = appData.debts.map(d => `
+                <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3.5 flex justify-between items-center shadow-md">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center">
+                            <i class="fa-solid ${icons[d.type] || 'fa-coins'} text-base"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-100">${d.name}</div>
+                            <div class="text-[11px] text-slate-400">Cuota: <span class="text-amber-400 font-semibold">${formatCurrency(d.cuota)}</span>/mes</div>
+                        </div>
+                    </div>
+                    <div class="text-right flex items-center space-x-2">
+                        <div>
+                            <div class="text-xs font-extrabold text-slate-100">${formatCurrency(d.saldo)}</div>
+                            <div class="text-[9px] text-slate-500 uppercase tracking-wider">${d.type}</div>
+                        </div>
+                        <div class="flex flex-col gap-1 pl-1">
+                            <button onclick="editDebt('${d.id}')" class="text-slate-400 hover:text-emerald-400 p-1 text-xs">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            <button onclick="deleteDebt('${d.id}')" class="text-slate-400 hover:text-rose-400 p-1 text-xs">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderFinanceList() {
+            // Ingresos
+            const incomeContainer = document.getElementById('income-list');
+            if (appData.incomes.length === 0) {
+                incomeContainer.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">Sin ingresos agregados</div>`;
+            } else {
+                incomeContainer.innerHTML = appData.incomes.map(i => `
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                        <span class="text-xs text-slate-200 font-medium">${i.name}</span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold text-emerald-400">+${formatCurrency(i.amount)}</span>
+                            <button onclick="deleteFinance('${i.id}', 'incomes')" class="text-slate-500 hover:text-rose-400 text-xs">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Gastos
+            const expenseContainer = document.getElementById('expense-list');
+            if (appData.expenses.length === 0) {
+                expenseContainer.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">Sin gastos fijos agregados</div>`;
+            } else {
+                expenseContainer.innerHTML = appData.expenses.map(e => `
+                    <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                        <span class="text-xs text-slate-200 font-medium">${e.name}</span>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-bold text-amber-400">-${formatCurrency(e.amount)}</span>
+                            <button onclick="deleteFinance('${e.id}', 'expenses')" class="text-slate-500 hover:text-rose-400 text-xs">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('history-list');
+            if (!appData.history || appData.history.length === 0) {
+                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-4">No hay registros de histórico acumulados.</div>`;
+                return;
+            }
+
+            container.innerHTML = [...appData.history].reverse().map(h => `
+                <div class="flex justify-between items-center bg-slate-900/50 p-2.5 rounded-xl border border-slate-700/40">
+                    <div>
+                        <div class="text-xs font-bold text-slate-200">${h.date}</div>
+                        <div class="text-[10px] text-slate-400">Cuotas pagadas: ${formatCurrency(h.totalPaid)}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-bold text-rose-400">${formatCurrency(h.totalDebt)}</div>
+                        <div class="text-[9px] text-slate-500">Deuda Restante</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openDebtModal(id = null) {
+            document.getElementById('form-debt').reset();
+            document.getElementById('debt-id').value = '';
+            document.getElementById('modal-debt-title').textContent = id ? 'Editar Deuda' : 'Añadir Nueva Deuda';
+
+            if (id) {
+                const debt = appData.debts.find(d => d.id === id);
+                if (debt) {
+                    document.getElementById('debt-id').value = debt.id;
+                    document.getElementById('debt-type').value = debt.type;
+                    document.getElementById('debt-name').value = debt.name;
+                    document.getElementById('debt-cuota').value = debt.cuota;
+                    document.getElementById('debt-saldo').value = debt.saldo;
+                }
+            }
+
+            document.getElementById('modal-debt').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function saveDebt(e) {
+            e.preventDefault();
+            const id = document.getElementById('debt-id').value;
+            const type = document.getElementById('debt-type').value;
+            const name = document.getElementById('debt-name').value;
+            const cuota = parseFloat(document.getElementById('debt-cuota').value) || 0;
+            const saldo = parseFloat(document.getElementById('debt-saldo').value) || 0;
+
+            if (id) {
+                const index = appData.debts.findIndex(d => d.id === id);
+                if (index !== -1) {
+                    appData.debts[index] = { id, type, name, cuota, saldo };
+                }
+            } else {
+                appData.debts.push({
+                    id: Date.now().toString(),
+                    type, name, cuota, saldo
+                });
+            }
+
+            closeModal('modal-debt');
+            saveLocalData();
+        }
+
+        function editDebt(id) {
+            openDebtModal(id);
+        }
+
+        function deleteDebt(id) {
+            appData.debts = appData.debts.filter(d => d.id !== id);
+            saveLocalData();
+        }
+
+        // INGRESOS Y GASTOS MODAL
+        function openIncomeModal() {
+            document.getElementById('form-finance').reset();
+            document.getElementById('finance-kind').value = 'incomes';
+            document.getElementById('modal-finance-title').textContent = 'Añadir Ingreso Mensual';
+            document.getElementById('modal-finance').classList.remove('hidden');
+        }
+
+        function openExpenseModal() {
+            document.getElementById('form-finance').reset();
+            document.getElementById('finance-kind').value = 'expenses';
+            document.getElementById('modal-finance-title').textContent = 'Añadir Gasto Fijo Mensual';
+            document.getElementById('modal-finance').classList.remove('hidden');
+        }
+
+        function saveFinance(e) {
+            e.preventDefault();
+            const kind = document.getElementById('finance-kind').value;
+            const name = document.getElementById('finance-name').value;
+            const amount = parseFloat(document.getElementById('finance-amount').value) || 0;
+
+            const newItem = { id: Date.now().toString(), name, amount };
+            if (kind === 'incomes') {
+                appData.incomes.push(newItem);
+            } else {
+                appData.expenses.push(newItem);
+            }
+
+            closeModal('modal-finance');
+            saveLocalData();
+        }
+
+        function deleteFinance(id, kind) {
+            appData[kind] = appData[kind].filter(item => item.id !== id);
+            saveLocalData();
+        }
+
+        // REGISTRAR INSTANTÁNEA DEL MES
+        function registerMonthlySnapshot() {
+            const today = new Date();
+            const monthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+            
+            const totalDeuda = appData.debts.reduce((acc, d) => acc + (parseFloat(d.saldo) || 0), 0);
+            const totalCuotas = appData.debts.reduce((acc, d) => acc + (parseFloat(d.cuota) || 0), 0);
+
+            // Reemplazar si existe el mismo mes o añadir
+            const existingIdx = appData.history.findIndex(h => h.date === monthStr);
+            if (existingIdx !== -1) {
+                appData.history[existingIdx] = { date: monthStr, totalDebt: totalDeuda, totalPaid: totalCuotas };
+            } else {
+                appData.history.push({ date: monthStr, totalDebt: totalDeuda, totalPaid: totalCuotas });
+            }
+
+            saveLocalData();
+            showToast("¡Estado mensual registrado con éxito!");
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('chartEvolucion').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Deuda Total (€)',
+                        data: [],
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                        fill: true,
+                        tension: 0.3,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#22c55e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+            updateChart();
+        }
+
+        function updateChart() {
+            if (!chartInstance) return;
+            const labels = appData.history.map(h => h.date);
+            const data = appData.history.map(h => h.totalDebt);
+
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets[0].data = data;
+            chartInstance.update();
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `copia_seguridad_finanzas_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported && imported.debts && imported.incomes) {
+                        appData = imported;
+                        saveLocalData();
+                        showToast("Copia de seguridad restaurada correctamente.");
+                    } else {
+                        showToast("El archivo no tiene el formato correcto.");
+                    }
+                } catch (err) {
+                    showToast("Error al procesar el archivo JSON.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function resetData() {
+            if (confirm("¿Estás seguro de que quieres borrar todos los datos? Esta acción no se puede deshacer.")) {
+                appData = { debts: [], incomes: [], expenses: [], history: [] };
+                saveLocalData();
+                showToast("Todos los datos han sido eliminados.");
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-800 border border-emerald-500/50 text-emerald-300 text-xs px-4 py-2 rounded-xl shadow-xl transition-all duration-300';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2500);
+        }
+    </script>
+</body>
+</html>
