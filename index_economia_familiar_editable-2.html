@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#17365d">
+<title>Mi Economía Familiar</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f6fa;color:#17212b}
+header{background:#17365d;color:#fff;padding:18px 15px;position:sticky;top:0;z-index:5}
+h1{font-size:22px;margin:0 0 4px}.sub{font-size:13px;opacity:.85}
+nav{display:flex;gap:6px;overflow:auto;padding:9px;background:#fff;position:sticky;top:76px;z-index:4;border-bottom:1px solid #ddd}
+nav button{border:0;border-radius:18px;padding:9px 12px;white-space:nowrap;background:#e8edf4}nav button.active{background:#17365d;color:#fff}
+main{max-width:900px;margin:auto;padding:14px}.tab{display:none}.tab.active{display:block}
+.card{background:#fff;border-radius:14px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
+h2{font-size:18px;margin:3px 0 12px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:9px}
+label{font-size:12px;font-weight:bold;display:block;margin:6px 0 4px}
+input,select{width:100%;padding:10px;border:1px solid #ccd4df;border-radius:9px;font-size:15px}
+button.primary{margin-top:10px;border:0;border-radius:9px;padding:11px 15px;background:#17365d;color:#fff;cursor:pointer}
+.small,.danger{border:0;border-radius:8px;padding:7px 9px;margin:4px 3px 0 0;cursor:pointer}.small{background:#e8edf4}.danger{background:#b42318;color:#fff}
+.stat{background:#eef4fb;padding:12px;border-radius:11px}.stat b{display:block;font-size:19px;margin-top:5px}
+.item{border:1px solid #e0e5eb;border-radius:10px;padding:11px;margin:8px 0}.locked{border-left:5px solid #17365d}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center}.muted{color:#687482;font-size:13px}
+.empty{text-align:center;color:#687482;padding:18px}.ok{background:#e7f6ec;padding:10px;border-radius:9px}
+</style>
+</head>
+<body>
+<header><h1>🏠 Mi Economía Familiar</h1><div class="sub">Control mensual de ingresos, gastos, seguros, hipotecas y préstamos</div></header>
+<nav>
+<button class="active" onclick="tab('inicio',this)">📊 Inicio</button>
+<button onclick="tab('gastos',this)">🛒 Gastos</button>
+<button onclick="tab('fijos',this)">🔒 Fijos</button>
+<button onclick="tab('hogar',this)">🏠 Hogar</button>
+<button onclick="tab('seguros',this)">🛡️ Seguros</button>
+<button onclick="tab('fin',this)">🏦 Financiación</button>
+</nav>
+<main>
+<section id="inicio" class="tab active">
+<div class="card"><h2>Resumen mensual</h2><label>Mes</label><input id="mes" type="month" onchange="render()">
+<div class="grid" style="margin-top:10px">
+<div class="stat">Ingresos<b id="ingT">0,00 €</b></div>
+<div class="stat">🔒 Fijos<b id="fixT">0,00 €</b></div>
+<div class="stat">Variables<b id="varT">0,00 €</b></div>
+<div class="stat">Disponible<b id="dispT">0,00 €</b></div>
+</div></div>
+<div class="card"><h2>🏠 Coste mensual por vivienda</h2><div id="vivs"></div></div>
+<div class="card"><h2>🛡️ Próximas renovaciones</h2><div id="renov"></div></div>
+</section>
+
+<section id="gastos" class="tab">
+<div class="card"><h2>➕ Ingreso</h2><div class="grid"><div><label>Concepto</label><input id="ic"></div><div><label>Importe (€)</label><input id="ii" type="number" step=".01"></div></div><button class="primary" onclick="addIngreso()">Guardar</button></div>
+<div class="card"><h2>🛒 Gastos variables</h2><p class="muted">Puedes añadir tantos conceptos como quieras: alimentación, farmacia, ropa, ocio, gasolina, etc. Cada uno queda registrado por separado.</p><div class="grid"><div><label>Concepto</label><input id="gc"></div><div><label>Categoría</label><select id="gcat"><option>Alimentación</option><option>Transporte</option><option>Ocio</option><option>Salud</option><option>Compras</option><option>Otros</option></select></div><div><label>Importe (€)</label><input id="gi" type="number" step=".01"></div><div><label>Fecha</label><input id="gf" type="date"></div></div><button class="primary" onclick="addGasto()">Guardar</button></div>
+<div class="card"><h2>Movimientos</h2><div id="mov"></div></div>
+</section>
+
+<section id="fijos" class="tab">
+<div class="card"><h2>🔒 Gastos fijos protegidos</h2><p class="muted">PIN inicial: <b>0000</b>. Los gastos protegidos no pueden borrarse hasta desbloquearlos.</p>
+<div class="grid"><div><label>Concepto</label><input id="fc"></div><div><label>Importe mensual (€)</label><input id="fi" type="number" step=".01"></div><div><label>Categoría</label><select id="fcat"><option>Otros</option><option>Teléfono</option><option>Internet</option><option>Luz</option><option>Agua</option><option>Gas</option><option>Administración</option><option>Hipoteca</option><option>Préstamo</option><option>Seguro</option></select></div><div><label>Día de cobro</label><input id="fd" type="number" min="1" max="31"></div></div><button class="primary" onclick="addFijo()">Añadir</button></div>
+<div class="card"><div id="fix"></div></div>
+</section>
+
+<section id="hogar" class="tab">
+<div class="card"><h2>💡💧🔥 Recibos del hogar</h2><p class="muted">Añade todos los recibos que necesites para cada vivienda. Luz, agua, gas, administración, teléfono, internet y otros.</p><div class="grid">
+<div><label>Vivienda</label><select id="hv"><option>Vivienda 1</option><option>Vivienda 2</option></select></div>
+<div><label>Servicio</label><select id="ht"><option>Luz</option><option>Agua</option><option>Gas</option><option>Administración</option><option>Teléfono</option><option>Internet</option><option>Otros</option></select></div>
+<div><label>Proveedor</label><input id="hp"></div><div><label>Importe (€)</label><input id="hi" type="number" step=".01"></div>
+<div><label>Periodicidad</label><select id="hper"><option>Mensual</option><option>Bimestral</option><option>Trimestral</option><option>Anual</option></select></div>
+<div><label>Fecha de cobro</label><input id="hf" type="date"></div></div><button class="primary" onclick="addHogar()">Guardar recibo</button></div>
+<div class="card"><div id="hog"></div></div>
+</section>
+
+<section id="seguros" class="tab">
+<div class="card"><h2>🛡️ Seguros</h2><p class="muted">Puedes añadir varias pólizas y mantenerlas separadas.</p><div class="grid">
+<div><label>Tipo</label><select id="st"><option>Vivienda 1</option><option>Vivienda 2</option><option>Coche</option><option>Vida</option><option>Otros</option></select></div>
+<div><label>Aseguradora</label><input id="sc"></div><div><label>Nº póliza</label><input id="sp"></div>
+<div><label>Precio anual (€)</label><input id="si" type="number" step=".01"></div><div><label>Renovación</label><input id="sr" type="date"></div><div><label>Teléfono</label><input id="stel"></div>
+</div><button class="primary" onclick="addSeguro()">Guardar seguro</button></div>
+<div class="card"><div id="seg"></div></div>
+</section>
+
+<section id="fin" class="tab">
+<div class="card"><h2>🏦 Hipotecas y préstamos</h2><p class="muted">Puedes registrar las dos hipotecas y añadir tantos préstamos como necesites.</p><p class="muted">Dos hipotecas y tantos préstamos como necesites.</p>
+<div class="grid"><div><label>Tipo</label><select id="pt"><option>Hipoteca 1</option><option>Hipoteca 2</option><option>Préstamo</option></select></div>
+<div><label>Entidad</label><input id="pe"></div><div><label>Importe inicial (€)</label><input id="pi" type="number" step=".01"></div>
+<div><label>Capital pendiente (€)</label><input id="pp" type="number" step=".01"></div><div><label>Cuota mensual (€)</label><input id="pc" type="number" step=".01"></div>
+<div><label>Interés (%)</label><input id="pint" type="number" step=".01"></div><div><label>Vencimiento</label><input id="pv" type="date"></div><div><label>Día de pago</label><input id="pd" type="number" min="1" max="31"></div></div>
+<button class="primary" onclick="addFin()">Guardar</button></div>
+<div class="card"><div id="finlist"></div></div>
+</section>
+</main>
+
+
+<script>
+const K='mi_economia_familiar_v5';
+let db;
+try {
+  db=JSON.parse(localStorage.getItem(K)||'null');
+} catch(e) { db=null; }
+
+const base={ing:[],gastos:[],fijos:[],hogar:[],seguros:[],fin:[]};
+db={...base,...(db||{})};
+
+const $=id=>document.getElementById(id);
+const money=n=>(Number(n)||0).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
+const M=()=>($('mes').value||new Date().toISOString().slice(0,7));
+$('mes').value=new Date().toISOString().slice(0,7);
+
+function save(){
+  localStorage.setItem(K,JSON.stringify(db));
+  render();
+}
+
+function clean(id){ if($(id)) $(id).value=''; }
+
+function tab(id,b){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  $(id).classList.add('active');
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  render();
+}
+
+function addIngreso(){
+  const n=Number($('ii').value);
+  if(!n){alert('Introduce un importe.');return;}
+  db.ing.push({id:Date.now(),c:$('ic').value.trim()||'Ingreso',n,m:M()});
+  clean('ic');clean('ii');save();
+}
+
+function addGasto(){
+  const n=Number($('gi').value);
+  if(!n){alert('Introduce un importe.');return;}
+  db.gastos.push({id:Date.now(),c:$('gc').value.trim()||'Gasto',cat:$('gcat').value,n,m:M(),f:$('gf').value});
+  clean('gc');clean('gi');save();
+}
+
+function addFijo(){
+  const n=Number($('fi').value);
+  if(!n){alert('Introduce un importe.');return;}
+  db.fijos.push({id:Date.now(),c:$('fc').value.trim()||'Gasto fijo',n,cat:$('fcat').value,d:$('fd').value,lock:true});
+  clean('fc');clean('fi');clean('fd');save();
+}
+
+function addHogar(){
+  const n=Number($('hi').value);
+  if(!n){alert('Introduce un importe.');return;}
+  db.hogar.push({id:Date.now(),v:$('hv').value,t:$('ht').value,p:$('hp').value,n,per:$('hper').value,f:$('hf').value});
+  clean('hp');clean('hi');save();
+}
+
+function addSeguro(){
+  const n=Number($('si').value);
+  if(!n){alert('Introduce un importe anual.');return;}
+  db.seguros.push({id:Date.now(),t:$('st').value,c:$('sc').value,p:$('sp').value,n,r:$('sr').value,tel:$('stel').value});
+  clean('sc');clean('sp');clean('si');clean('sr');clean('stel');save();
+}
+
+function addFin(){
+  const n=Number($('pc').value);
+  if(!n){alert('Introduce la cuota mensual.');return;}
+  db.fin.push({id:Date.now(),t:$('pt').value,e:$('pe').value,ini:Number($('pi').value)||0,pend:Number($('pp').value)||0,n,int:Number($('pint').value)||0,v:$('pv').value,d:$('pd').value});
+  clean('pe');clean('pi');clean('pp');clean('pc');clean('pint');clean('pv');clean('pd');save();
+}
+
+function borrar(a,i){
+  if(!confirm('¿Seguro que quieres borrar este registro?')) return;
+  db[a].splice(i,1); save();
+}
+
+function desbloquear(i){
+  const p=prompt('PIN de desbloqueo');
+  if(p==='0000'){db.fijos[i].lock=false;save();}
+  else if(p!==null) alert('PIN incorrecto');
+}
+function proteger(i){db.fijos[i].lock=true;save();}
+
+function editarIngreso(i){
+  const x=db.ing[i];
+  const c=prompt('Concepto:',x.c); if(c===null)return;
+  const n=prompt('Importe (€):',x.n); if(n===null||!Number(n))return;
+  const m=prompt('Mes (AAAA-MM):',x.m); if(m===null)return;
+  x.c=c.trim()||'Ingreso';x.n=Number(n);x.m=m;save();
+}
+function editarGasto(i){
+  const x=db.gastos[i];
+  const c=prompt('Concepto:',x.c); if(c===null)return;
+  const n=prompt('Importe (€):',x.n); if(n===null||!Number(n))return;
+  const cat=prompt('Categoría:',x.cat); if(cat===null)return;
+  const f=prompt('Fecha (AAAA-MM-DD):',x.f||''); if(f===null)return;
+  x.c=c.trim()||'Gasto';x.n=Number(n);x.cat=cat;x.f=f;save();
+}
+function editarFijo(i){
+  if(db.fijos[i].lock){alert('Desbloquea primero el gasto fijo.');return;}
+  const x=db.fijos[i];
+  const c=prompt('Concepto:',x.c); if(c===null)return;
+  const n=prompt('Importe mensual (€):',x.n); if(n===null||!Number(n))return;
+  const cat=prompt('Categoría:',x.cat); if(cat===null)return;
+  const d=prompt('Día de cobro:',x.d||''); if(d===null)return;
+  x.c=c.trim()||'Gasto fijo';x.n=Number(n);x.cat=cat;x.d=d;save();
+}
+function editarHogar(i){
+  const x=db.hogar[i];
+  const v=prompt('Vivienda:',x.v); if(v===null)return;
+  const t=prompt('Servicio:',x.t); if(t===null)return;
+  const p=prompt('Proveedor:',x.p||''); if(p===null)return;
+  const n=prompt('Importe (€):',x.n); if(n===null||!Number(n))return;
+  const per=prompt('Periodicidad:',x.per); if(per===null)return;
+  const f=prompt('Fecha (AAAA-MM-DD):',x.f||''); if(f===null)return;
+  x.v=v;x.t=t;x.p=p;x.n=Number(n);x.per=per;x.f=f;save();
+}
+function editarSeguro(i){
+  const x=db.seguros[i];
+  const t=prompt('Tipo:',x.t); if(t===null)return;
+  const c=prompt('Aseguradora:',x.c||''); if(c===null)return;
+  const p=prompt('Nº póliza:',x.p||''); if(p===null)return;
+  const n=prompt('Precio anual (€):',x.n); if(n===null||!Number(n))return;
+  const r=prompt('Renovación (AAAA-MM-DD):',x.r||''); if(r===null)return;
+  const tel=prompt('Teléfono:',x.tel||''); if(tel===null)return;
+  x.t=t;x.c=c;x.p=p;x.n=Number(n);x.r=r;x.tel=tel;save();
+}
+function editarFin(i){
+  const x=db.fin[i];
+  const t=prompt('Tipo:',x.t); if(t===null)return;
+  const e=prompt('Entidad:',x.e||''); if(e===null)return;
+  const ini=prompt('Importe inicial (€):',x.ini); if(ini===null)return;
+  const pend=prompt('Capital pendiente (€):',x.pend); if(pend===null)return;
+  const n=prompt('Cuota mensual (€):',x.n); if(n===null||!Number(n))return;
+  const int=prompt('Interés (%):',x.int); if(int===null)return;
+  const v=prompt('Vencimiento (AAAA-MM-DD):',x.v||''); if(v===null)return;
+  const d=prompt('Día de pago:',x.d||''); if(d===null)return;
+  x.t=t;x.e=e;x.ini=Number(ini)||0;x.pend=Number(pend)||0;x.n=Number(n);x.int=Number(int)||0;x.v=v;x.d=d;save();
+}
+
+function render(){
+  const m=M();
+  const ing=db.ing.filter(x=>x.m===m).reduce((s,x)=>s+Number(x.n||0),0);
+  const vari=db.gastos.filter(x=>x.m===m).reduce((s,x)=>s+Number(x.n||0),0);
+  const fix=db.fijos.reduce((s,x)=>s+Number(x.n||0),0)+db.fin.reduce((s,x)=>s+Number(x.n||0),0);
+  $('ingT').textContent=money(ing);
+  $('varT').textContent=money(vari);
+  $('fixT').textContent=money(fix);
+  $('dispT').textContent=money(ing-vari-fix);
+
+  $('mov').innerHTML=[
+    ...db.ing.filter(x=>x.m===m).map(x=>{
+      const i=db.ing.indexOf(x);
+      return `<div class=item><div class=row><span>💰 ${esc(x.c)}</span><b>${money(x.n)}</b></div>
+      <button class=small onclick="editarIngreso(${i})">✏️ Editar</button>
+      <button class=danger onclick="borrar('ing',${i})">Borrar</button></div>`;
+    }),
+    ...db.gastos.filter(x=>x.m===m).map(x=>{
+      const i=db.gastos.indexOf(x);
+      return `<div class=item><div class=row><span>🛒 ${esc(x.c)}</span><b>${money(x.n)}</b></div>
+      <div class=muted>${esc(x.cat)} · ${esc(x.f||'')}</div>
+      <button class=small onclick="editarGasto(${i})">✏️ Editar</button>
+      <button class=danger onclick="borrar('gastos',${i})">Borrar</button></div>`;
+    })
+  ].join('')||'<div class=empty>No hay movimientos este mes.</div>';
+
+  $('fix').innerHTML=db.fijos.map((x,i)=>`<div class="item ${x.lock?'locked':''}">
+    <div class=row><b>${x.lock?'🔒':'🔓'} ${esc(x.c)}</b><b>${money(x.n)}/mes</b></div>
+    <div class=muted>${esc(x.cat)} · Día ${esc(x.d||'-')}</div>
+    <button class=small onclick="${x.lock?`desbloquear(${i})`:`proteger(${i})`}">${x.lock?'Desbloquear':'Proteger'}</button>
+    <button class=small onclick="editarFijo(${i})">✏️ Editar</button>
+    <button class=danger onclick="if(db.fijos[${i}].lock)alert('Desbloquea primero');else borrar('fijos',${i})">Borrar</button>
+  </div>`).join('')||'<div class=empty>No hay gastos fijos.</div>';
+
+  $('hog').innerHTML=db.hogar.map((x,i)=>`<div class=item>
+    <div class=row><b>🏠 ${esc(x.v)} · ${esc(x.t)}</b><b>${money(x.n)}</b></div>
+    <div class=muted>${esc(x.p||'Sin proveedor')} · ${esc(x.per)} · ${esc(x.f||'Sin fecha')}</div>
+    <button class=small onclick="editarHogar(${i})">✏️ Editar</button>
+    <button class=danger onclick="borrar('hogar',${i})">Borrar</button>
+  </div>`).join('')||'<div class=empty>No hay recibos.</div>';
+
+  $('seg').innerHTML=db.seguros.map((x,i)=>`<div class=item>
+    <div class=row><b>🛡️ ${esc(x.t)}</b><b>${money(x.n)}/año</b></div>
+    <div class=muted>${esc(x.c||'Sin aseguradora')} · ${money(x.n/12)}/mes · Póliza: ${esc(x.p||'-')} · Renovación: ${esc(x.r||'-')} · Tel.: ${esc(x.tel||'-')}</div>
+    <button class=small onclick="editarSeguro(${i})">✏️ Editar</button>
+    <button class=danger onclick="borrar('seguros',${i})">Borrar</button>
+  </div>`).join('')||'<div class=empty>No hay seguros.</div>';
+
+  $('finlist').innerHTML=db.fin.map((x,i)=>`<div class=item>
+    <div class=row><b>🏦 ${esc(x.t)}</b><b>${money(x.n)}/mes</b></div>
+    <div class=muted>${esc(x.e||'Sin entidad')} · Pendiente: ${money(x.pend)} · Inicial: ${money(x.ini)} · Interés: ${x.int||0}% · Vencimiento: ${esc(x.v||'-')} · Día: ${esc(x.d||'-')}</div>
+    <button class=small onclick="editarFin(${i})">✏️ Editar</button>
+    <button class=danger onclick="borrar('fin',${i})">Borrar</button>
+  </div>`).join('')||'<div class=empty>No hay hipotecas ni préstamos.</div>';
+
+  $('vivs').innerHTML=[1,2].map(n=>{
+    let t=db.hogar.filter(x=>x.v==='Vivienda '+n).reduce((s,x)=>s+x.n/(x.per==='Bimestral'?2:x.per==='Trimestral'?3:x.per==='Anual'?12:1),0);
+    return `<div class=row><span>🏠 Vivienda ${n}</span><b>${money(t)}/mes</b></div>`;
+  }).join('');
+
+  let r=db.seguros.filter(x=>x.r).sort((a,b)=>a.r.localeCompare(b.r));
+  $('renov').innerHTML=r.map(x=>`<div class=item>🛡️ ${esc(x.t)}: <b>${esc(x.r)}</b></div>`).join('')||'<div class=ok>No hay renovaciones registradas.</div>';
+}
+
+function esc(v){
+  return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+render();
+</script>
+
+</body></html>
